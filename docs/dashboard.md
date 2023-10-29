@@ -10,9 +10,9 @@
 
 ```yaml
 - job_name: 'kubernetes-vgpu-exporter'
-    kubernetes_sd_configs:
+  kubernetes_sd_configs:
     - role: endpoints
-    relabel_configs:
+  relabel_configs:
     - source_labels: [__meta_kubernetes_endpoints_name]
       regex: vgpu-device-plugin-monitor
       replacement: $1

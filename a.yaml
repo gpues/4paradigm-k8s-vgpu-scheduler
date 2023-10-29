@@ -1,0 +1,944 @@
+---
+# Source: vgpu/templates/device-plugin/monitorserviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vgpu-device-plugin
+  namespace: "kube-system"
+  labels:
+    app.kubernetes.io/component: "4pd-device-plugin"
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: vgpu/templates/scheduler/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vgpu-scheduler
+  namespace: "kube-system"
+  labels:
+    app.kubernetes.io/component: "4pd-scheduler"
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: vgpu/templates/device-plugin/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vgpu-device-plugin
+  labels:
+    app.kubernetes.io/component: 4pd-device-plugin
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  config.json: |
+    {
+        "nodeconfig": [
+            {
+                "name": "m5-cloudinfra-online02",
+                "devicememoryscaling": 1.8,
+                "devicesplitcount": 10,
+                "migstrategy":"none"
+            }
+        ]
+    }
+---
+# Source: vgpu/templates/scheduler/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vgpu-scheduler
+  labels:
+    app.kubernetes.io/component: 4pd-scheduler
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  config.json: |
+    {
+        "kind": "Policy",
+        "apiVersion": "v1",
+        "extenders": [
+            {
+                "urlPrefix": "https://127.0.0.1:443",
+                "filterVerb": "filter",
+                "bindVerb": "bind",
+                "enableHttps": true,
+                "weight": 1,
+                "nodeCacheCapable": true,
+                "httpTimeout": 30000000000,
+                "tlsConfig": {
+                    "insecure": true
+                },
+                "managedResources": [
+                    {
+                        "name": "nvidia.com/gpu",
+                        "ignoredByScheduler": true
+                    },
+                    {
+                        "name": "nvidia.com/gpumem",
+                        "ignoredByScheduler": true
+                    },
+                    {
+                        "name": "nvidia.com/gpucores",
+                        "ignoredByScheduler": true
+                    },
+                    {
+                        "name": "nvidia.com/gpumem-percentage",
+                        "ignoredByScheduler": true
+                    },
+                    {
+                        "name": "nvidia.com/priority",
+                        "ignoredByScheduler": true
+                    },
+                    {
+                        "name": "cambricon.com/mlunum",
+                        "ignoredByScheduler": true
+                    },
+                    {
+                        "name": "cambricon.com/mlumem",
+                        "ignoredByScheduler": true   
+                    },
+                    {
+                        "name": "hygon.com/dcunum",
+                        "ignoredByScheduler": true
+                    },
+                    {
+                        "name": "hygon.com/dcumem",
+                        "ignoredByScheduler": true 
+                    },
+                    {
+                        "name": "hygon.com/dcucores",
+                        "ignoredByScheduler": true
+                    }
+                ],
+                "ignoreable": false
+            }
+        ]
+    }
+---
+# Source: vgpu/templates/scheduler/configmapnew.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vgpu-scheduler-newversion
+  labels:
+    app.kubernetes.io/component: 4pd-scheduler
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1beta2
+    kind: KubeSchedulerConfiguration
+    leaderElection:
+      leaderElect: false
+    profiles:
+    - schedulerName: 4pd-scheduler
+    extenders:
+    - urlPrefix: "https://127.0.0.1:443"
+      filterVerb: filter
+      bindVerb: bind
+      nodeCacheCapable: true
+      weight: 1
+      httpTimeout: 30s
+      enableHTTPS: true
+      tlsConfig:
+        insecure: true
+      managedResources:
+      - name: nvidia.com/gpu
+        ignoredByScheduler: true
+      - name: nvidia.com/gpumem
+        ignoredByScheduler: true
+      - name: nvidia.com/gpucores
+        ignoredByScheduler: true
+      - name: nvidia.com/gpumem-percentage
+        ignoredByScheduler: true
+      - name: nvidia.com/priority
+        ignoredByScheduler: true
+      - name: cambricon.com/mlunum
+        ignoredByScheduler: true
+      - name: cambricon.com/mlumem
+        ignoredByScheduler: true
+      - name: hygon.com/dcunum
+        ignoredByScheduler: true
+      - name: hygon.com/dcumem
+        ignoredByScheduler: true
+      - name: hygon.com/dcucores
+        ignoredByScheduler: true
+---
+# Source: vgpu/templates/device-plugin/monitorrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name:  vgpu-device-plugin-monitor
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - create
+      - watch
+      - list
+      - update
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - update
+      - list
+      - patch
+---
+# Source: vgpu/templates/device-plugin/monitorrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vgpu-device-plugin
+  labels:
+    app.kubernetes.io/component: "4pd-device-plugin"
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  #name: cluster-admin
+  name: vgpu-device-plugin-monitor
+subjects:
+  - kind: ServiceAccount
+    name: vgpu-device-plugin
+    namespace: "kube-system"
+---
+# Source: vgpu/templates/scheduler/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vgpu-scheduler
+  labels:
+    app.kubernetes.io/component: "4pd-scheduler"
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: vgpu-scheduler
+    namespace: "kube-system"
+---
+# Source: vgpu/templates/device-plugin/monitorservice.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vgpu-device-plugin-monitor
+  labels:
+    app.kubernetes.io/component: 4pd-scheduler
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/component: 4pd-device-plugin
+  type: NodePort
+  ports:
+    - name: monitorport
+      port: 31992
+      targetPort: 9394
+      nodePort: 31992
+---
+# Source: vgpu/templates/scheduler/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vgpu-scheduler
+  labels:
+    app.kubernetes.io/component: 4pd-scheduler
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 443
+      targetPort: 443
+      nodePort: 31998
+      protocol: TCP
+    - name: monitor
+      port: 31993
+      targetPort: 9395
+      nodePort: 31993
+      protocol: TCP
+  selector:
+    app.kubernetes.io/component: 4pd-scheduler
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+---
+# Source: vgpu/templates/device-plugin/daemonsethygon.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vgpu-device-plugin-hygon
+  labels:
+    app.kubernetes.io/component: 4pd-device-plugin-hygon
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: 4pd-device-plugin-hygon
+      app.kubernetes.io/name: vgpu
+      app.kubernetes.io/instance: vgpu
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: 4pd-device-plugin-hygon
+        4pd.io/webhook: ignore
+        app.kubernetes.io/name: vgpu
+        app.kubernetes.io/instance: vgpu
+    spec:
+      imagePullSecrets: 
+        []
+      serviceAccountName: vgpu-device-plugin
+      priorityClassName: system-node-critical
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: dcu-device-plugin-ctr
+          image: 4pdosc/vdcu-device-plugin:v1.0
+          imagePullPolicy: "IfNotPresent"
+          command: ["/hygon","-logtostderr=true","-stderrthreshold=INFO","-v=5"]
+          env:
+            - name: NodeName
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: HOOK_PATH
+              value: /usr/local/vgpu
+            - name: HYGONPATH
+              value: /root/dcu-driver/dtk-22.10.1-vdcu
+          securityContext:
+            privileged: true
+            allowPrivilegeEscalation: true
+            capabilities:
+              drop: ["ALL"]
+              add: ["SYS_ADMIN"]
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: deviceconfig
+              mountPath: /config
+            - name: sysinfo
+              mountPath: /sys
+            - name: lib
+              mountPath: /usr/local/vgpu
+            - name: hwpath
+              mountPath: /usr/share/hwdata
+            - name: hygonloc
+              mountPath: /opt/hygondriver/
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: sysinfo
+          hostPath:
+            path: /sys
+        - name: deviceconfig
+          configMap:
+            name: vgpu-device-plugin
+        - name: lib
+          hostPath:
+            path: /usr/local/vgpu
+        - name: hwpath
+          hostPath:
+            path: /usr/share/hwdata
+        - name: hygonloc
+          hostPath:
+            path: /root/dcu-driver/dtk-22.10.1-vdcu
+      nodeSelector: 
+        dcu: "on"
+---
+# Source: vgpu/templates/device-plugin/daemonsetmlu.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vgpu-device-plugin-mlu
+  labels:
+    app.kubernetes.io/component: 4pd-device-plugin-mlu
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: 4pd-device-plugin-mlu
+      app.kubernetes.io/name: vgpu
+      app.kubernetes.io/instance: vgpu
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: 4pd-device-plugin-mlu
+        4pd.io/webhook: ignore
+        app.kubernetes.io/name: vgpu
+        app.kubernetes.io/instance: vgpu
+    spec:
+      imagePullSecrets: 
+        []
+      serviceAccountName: vgpu-device-plugin
+      priorityClassName: system-node-critical
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: cambricon-device-plugin-ctr
+          image: 4pdosc/k8s-vdevice:v2.3.4
+          imagePullPolicy: "IfNotPresent"
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh","-c","cp -f /k8s-vgpu/lib/mlu/smlu-containerd /usr/local/vgpu/"]
+          command:
+            - mlu-device-plugin
+            - --mode=env-share #device plugin mode: default, sriov, env-share, mlu-share or topology-aware
+            - --virtualization-num=10 #  virtualization number for each MLU, used only in sriov mode or env-share mode
+            - --mlulink-policy=best-effort # MLULink topology policy: best-effort, guaranteed or restricted, used only in topology-aware mode
+            - --cnmon-path=/usr/bin/cnmon # host machine cnmon path, must be absolute path. comment out this line to avoid mounting cnmon.
+            #- --enable-console #uncomment to enable UART console device(/dev/ttyMS) in container
+            #- --disable-health-check #uncomment to disable health check
+            #- --enable-device-type #uncomment to enable device registration with type over_info
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: HOOK_PATH
+              value: /usr/local/vgpu
+          securityContext:
+            privileged: true
+            allowPrivilegeEscalation: true
+            capabilities:
+              drop: ["ALL"]
+              add: ["SYS_ADMIN"]
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: deviceconfig
+              mountPath: /config
+            - name: sysinfo
+              mountPath: /sysinfo
+            - name: lib
+              mountPath: /usr/local/vgpu
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: sysinfo
+          hostPath:
+            path: /sys
+        - name: deviceconfig
+          configMap:
+            name: vgpu-device-plugin
+        - name: lib
+          hostPath:
+            path: /usr/local/vgpu
+      nodeSelector: 
+        mlu: "on"
+---
+# Source: vgpu/templates/device-plugin/daemonsetnvidia.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vgpu-device-plugin
+  labels:
+    app.kubernetes.io/component: 4pd-device-plugin
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: 4pd-device-plugin
+      app.kubernetes.io/name: vgpu
+      app.kubernetes.io/instance: vgpu
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: 4pd-device-plugin
+        4pd.io/webhook: ignore
+        app.kubernetes.io/name: vgpu
+        app.kubernetes.io/instance: vgpu
+    spec:
+      imagePullSecrets: 
+        []
+      # serviceAccountName:
+      serviceAccountName: vgpu-device-plugin
+      priorityClassName: system-node-critical
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: device-plugin
+          image: 4pdosc/k8s-vdevice:v2.3.4
+          imagePullPolicy: "IfNotPresent"
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh","-c","cp -f /k8s-vgpu/lib/nvidia/* /usr/local/vgpu/"]
+          command:
+          #  - sleep
+          #  - infinity
+          command:
+            - nvidia-device-plugin
+            - --resource-name=nvidia.com/gpu
+            - --mig-strategy=none
+            - --device-memory-scaling=1
+            - --device-cores-scaling=1
+            - --device-split-count=10
+            - --disable-core-limit=false
+            - -v=false
+          env:
+            - name: NodeName
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NVIDIA_MIG_MONITOR_DEVICES
+              value: all
+            - name: HOOK_PATH
+              value: /usr/local/vgpu
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["SYS_ADMIN"]
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: lib
+              mountPath: /usr/local/vgpu
+            - name: usrbin
+              mountPath: /usrbin
+            - name: deviceconfig
+              mountPath: /config
+            - name: hosttmp
+              mountPath: /tmp
+        - name: vgpu-monitor
+          image: 4pdosc/k8s-vdevice:v2.3.4
+          imagePullPolicy: "IfNotPresent"
+          #command: ["sleep","infinity"]
+          command: ["vGPUmonitor"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["SYS_ADMIN"]
+          env:
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_MIG_MONITOR_DEVICES
+              value: all
+          volumeMounts:
+            - name: ctrs
+              mountPath: /usr/local/vgpu/containers
+            - name: dockers
+              mountPath: /run/docker
+            - name: containerds
+              mountPath: /run/containerd
+            - name: sysinfo
+              mountPath: /sysinfo
+            - name: hostvar
+              mountPath: /hostvar
+      volumes:
+        - name: ctrs
+          hostPath:
+            path: /usr/local/vgpu/containers
+        - name: hosttmp
+          hostPath:
+            path: /tmp
+        - name: dockers
+          hostPath:
+            path: /run/docker
+        - name: containerds
+          hostPath:
+            path: /run/containerd
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: lib
+          hostPath:
+            #path: /usr/local/vgpu
+            path: /usr/local/vgpu
+        - name: usrbin
+          hostPath:
+            path: /usr/bin
+        - name: sysinfo
+          hostPath:
+            path: /sys
+        - name: hostvar
+          hostPath:
+            path: /var
+        - name: deviceconfig
+          configMap:
+            name: vgpu-device-plugin
+      nodeSelector: 
+        gpu: "on"
+---
+# Source: vgpu/templates/scheduler/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vgpu-scheduler
+  labels:
+    app.kubernetes.io/component: 4pd-scheduler
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: 4pd-scheduler
+      app.kubernetes.io/name: vgpu
+      app.kubernetes.io/instance: vgpu
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: 4pd-scheduler
+        app.kubernetes.io/name: vgpu
+        app.kubernetes.io/instance: vgpu
+        4pd.io/webhook: ignore
+    spec:
+      imagePullSecrets: 
+        []
+      serviceAccountName: vgpu-scheduler
+      priorityClassName: system-node-critical
+      containers:
+        - name: kube-scheduler
+          image: registry.cn-hangzhou.aliyuncs.com/google_containers/kube-scheduler:v1.16.8
+          imagePullPolicy: "IfNotPresent"
+          command:
+            - kube-scheduler
+            - --scheduler-name=4pd-scheduler
+            - --policy-config-file=/config/config.json
+            - --leader-elect=false
+            - -v=4
+          volumeMounts:
+            - name: scheduler-config
+              mountPath: /config
+        - name: vgpu-scheduler-extender
+          image: 4pdosc/k8s-vdevice:v2.3.4
+          imagePullPolicy: "IfNotPresent"
+          command:
+            - scheduler
+            - --resource-name=nvidia.com/gpu
+            - --resource-mem=nvidia.com/gpumem
+            - --resource-cores=nvidia.com/gpucores
+            - --resource-mem-percentage=nvidia.com/gpumem-percentage
+            - --resource-priority=nvidia.com/priority
+            - --http_bind=0.0.0.0:443
+            - --cert_file=/tls/tls.crt
+            - --key_file=/tls/tls.key
+            - --scheduler-name=4pd-scheduler
+            - --default-mem=0
+            - --default-cores=0
+            - --debug
+            - -v=4
+          ports:
+            - name: http
+              containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: tls-config
+              mountPath: /tls
+      volumes:
+        - name: tls-config
+          secret:
+            secretName: vgpu-scheduler-tls
+        - name: scheduler-config
+          configMap:
+            name: vgpu-scheduler
+---
+# Source: vgpu/templates/scheduler/webhook.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: vgpu-webhook
+webhooks:
+  - admissionReviewVersions:
+    - v1beta1
+    clientConfig:
+      service:
+        name: vgpu-scheduler
+        namespace: kube-system
+        path: /webhook
+        port: 443
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    name: vgpu.4pd.io
+    namespaceSelector:
+      matchExpressions:
+      - key: 4pd.io/webhook
+        operator: NotIn
+        values:
+        - ignore
+    objectSelector:
+      matchExpressions:
+      - key: 4pd.io/webhook
+        operator: NotIn
+        values:
+        - ignore
+    reinvocationPolicy: Never
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+        scope: '*'
+    sideEffects: None
+    timeoutSeconds: 10
+---
+# Source: vgpu/templates/scheduler/job-patch/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vgpu-admission
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admission-webhook
+---
+# Source: vgpu/templates/scheduler/job-patch/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vgpu-admission
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admission-webhook
+rules:
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      #- validatingwebhookconfigurations
+      - mutatingwebhookconfigurations
+    verbs:
+      - get
+      - update
+---
+# Source: vgpu/templates/scheduler/job-patch/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name:  vgpu-admission
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admission-webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vgpu-admission
+subjects:
+  - kind: ServiceAccount
+    name: vgpu-admission
+    namespace: "kube-system"
+---
+# Source: vgpu/templates/scheduler/job-patch/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name:  vgpu-admission
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admission-webhook
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - create
+---
+# Source: vgpu/templates/scheduler/job-patch/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vgpu-admission
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admission-webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vgpu-admission
+subjects:
+  - kind: ServiceAccount
+    name: vgpu-admission
+    namespace: "kube-system"
+---
+# Source: vgpu/templates/scheduler/job-patch/job-createSecret.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vgpu-admission-create
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admission-webhook
+spec:
+  template:
+    metadata:
+      name: vgpu-admission-create
+      labels:
+        helm.sh/chart: vgpu-2.0.0
+        app.kubernetes.io/name: vgpu
+        app.kubernetes.io/instance: vgpu
+        app.kubernetes.io/version: "0.0.2"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/component: admission-webhook
+        4pd.io/webhook: ignore
+    spec:
+      imagePullSecrets: 
+        []
+      containers:
+        - name: create
+          image: docker.io/jettech/kube-webhook-certgen:v1.5.2
+          imagePullPolicy: IfNotPresent
+          args:
+            - create
+            - --cert-name=tls.crt
+            - --key-name=tls.key
+            - --host=vgpu-scheduler.kube-system.svc,127.0.0.1
+            - --namespace=kube-system
+            - --secret-name=vgpu-scheduler-tls
+      restartPolicy: OnFailure
+      serviceAccountName: vgpu-admission
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000
+---
+# Source: vgpu/templates/scheduler/job-patch/job-patchWebhook.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vgpu-admission-patch
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    helm.sh/chart: vgpu-2.0.0
+    app.kubernetes.io/name: vgpu
+    app.kubernetes.io/instance: vgpu
+    app.kubernetes.io/version: "0.0.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: admission-webhook
+spec:
+  template:
+    metadata:
+      name: vgpu-admission-patch
+      labels:
+        helm.sh/chart: vgpu-2.0.0
+        app.kubernetes.io/name: vgpu
+        app.kubernetes.io/instance: vgpu
+        app.kubernetes.io/version: "0.0.2"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/component: admission-webhook
+        4pd.io/webhook: ignore
+    spec:
+      imagePullSecrets: 
+        []
+      containers:
+        - name: patch
+          image: docker.io/jettech/kube-webhook-certgen:v1.5.2
+          imagePullPolicy: IfNotPresent
+          args:
+            - patch
+            - --webhook-name=vgpu-webhook
+            - --namespace=kube-system
+            - --patch-validating=false
+            - --secret-name=vgpu-scheduler-tls
+            - --patch-failure-policy=Fail
+      restartPolicy: OnFailure
+      serviceAccountName: vgpu-admission
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000

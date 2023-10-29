@@ -30,7 +30,7 @@ type Options struct {
 	DisableHealthCheck bool   `long:"disable-health-check" description:"disable MLU health check"`
 	NodeName           string `long:"node-name" description:"host node name" env:"NODE_NAME"`
 	EnableConsole      bool   `long:"enable-console" description:"enable UART console device(/dev/ttyMS) in container"`
-	EnableDeviceType   bool   `long:"enable-device-type" description:"enable device registration with type info"`
+	EnableDeviceType   bool   `long:"enable-device-type" description:"enable device registration with type over_info"`
 	CnmonPath          string `long:"cnmon-path" description:"host cnmon path"`
 	SocketPath         string `long:"socket-path" description:"socket path for communication between deviceplugin and container runtime"`
 }

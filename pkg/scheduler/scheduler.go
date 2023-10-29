@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"4pd.io/k8s-vgpu/pkg/device"
-	"4pd.io/k8s-vgpu/pkg/k8sutil"
+	"4pd.io/k8s-vgpu/pkg/over_k8sutil"
 	"4pd.io/k8s-vgpu/pkg/util"
 	"4pd.io/k8s-vgpu/pkg/util/nodelock"
 	v1 "k8s.io/api/core/v1"
@@ -83,7 +83,7 @@ func (s *Scheduler) onAddPod(obj interface{}) {
 	if !ok {
 		return
 	}
-	if k8sutil.IsPodInTerminatedState(pod) {
+	if over_k8sutil.IsPodInTerminatedState(pod) {
 		s.delPod(pod)
 		return
 	}
@@ -109,7 +109,7 @@ func (s *Scheduler) onDelPod(obj interface{}) {
 }
 
 func (s *Scheduler) Start() {
-	kubeClient, err := k8sutil.NewClient()
+	kubeClient, err := over_k8sutil.NewClient()
 	check(err)
 	s.kubeClient = kubeClient
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(s.kubeClient, time.Hour*1)
@@ -219,7 +219,7 @@ func (s *Scheduler) RegisterFromNodeAnnotatons() error {
 				s.addNode(val.Name, nodeInfo)
 				nodeInfoCopy[devhandsk] = nodeInfo
 				if s.nodes[val.Name] != nil && nodeInfo != nil && len(nodeInfo.Devices) > 0 {
-					klog.Infof("node %v device %s come node info=%v total=%v", val.Name, devhandsk, nodeInfoCopy[devhandsk], s.nodes[val.Name].Devices)
+					klog.Infof("node %v device %s come node over_info=%v total=%v", val.Name, devhandsk, nodeInfoCopy[devhandsk], s.nodes[val.Name].Devices)
 				}
 			}
 		}
@@ -351,7 +351,7 @@ func (s *Scheduler) Bind(args extenderv1.ExtenderBindingArgs) (*extenderv1.Exten
 
 func (s *Scheduler) Filter(args extenderv1.ExtenderArgs) (*extenderv1.ExtenderFilterResult, error) {
 	klog.Infof("schedule pod %v/%v[%v]", args.Pod.Namespace, args.Pod.Name, args.Pod.UID)
-	nums := k8sutil.Resourcereqs(args.Pod)
+	nums := over_k8sutil.Resourcereqs(args.Pod)
 	total := 0
 	for _, n := range nums {
 		for _, k := range n {

@@ -210,6 +210,6 @@ func TestParseDebugFSFirmwareInfo(t *testing.T) {
 		}
 	}
 	if len(feat) != len(expFeat) || len(fw) != len(expFw) {
-		t.Errorf("Incorrect parsing of amdgpu firmware info from debugfs")
+		t.Errorf("Incorrect parsing of amdgpu firmware over_info from debugfs")
 	}
 }

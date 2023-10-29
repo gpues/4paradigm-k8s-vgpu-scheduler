@@ -144,7 +144,7 @@ func (p *Plugin) Start() error {
 	}
 	fmt.Println("collecting pcibus=", p.pcibusid)
 
-	cmd = exec.Command("hdmcli", "--show-device-info")
+	cmd = exec.Command("hdmcli", "--show-device-over_info")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		log.Fatalf("cmd.Run() failed with %s\n", err)

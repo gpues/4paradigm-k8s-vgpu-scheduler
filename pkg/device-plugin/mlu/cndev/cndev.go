@@ -73,7 +73,7 @@ func (d *Device) GetGeviceHealthState(delayTime int) (int, error) {
 
 func (d *Device) GetPCIeID() (string, error) {
 	if d.pcie == nil {
-		return "", errors.New("device has no PCIe info")
+		return "", errors.New("device has no PCIe over_info")
 	}
 	domain := strconv.FormatInt(int64(d.pcie.domain), 16)
 	domain = strings.Repeat("0", 4-len([]byte(domain))) + domain

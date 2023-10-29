@@ -23,7 +23,7 @@ import (
 	"syscall"
 	"time"
 
-	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/info"
+	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/over_info"
 	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/plugin"
 	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/rm"
 	"4pd.io/k8s-vgpu/pkg/util"
@@ -41,7 +41,7 @@ func main() {
 	c := cli.NewApp()
 	c.Name = "NVIDIA Device Plugin"
 	c.Usage = "NVIDIA device plugin for Kubernetes"
-	c.Version = info.GetVersionString()
+	c.Version = over_info.GetVersionString()
 	c.Action = func(ctx *cli.Context) error {
 		return start(ctx, c.Flags)
 	}
@@ -50,71 +50,71 @@ func main() {
 		&cli.StringFlag{
 			Name:    "mig-strategy",
 			Value:   spec.MigStrategyNone,
-			Usage:   "the desired strategy for exposing MIG devices on GPUs that support it:\n\t\t[none | single | mixed]",
+			Usage:   "在支持MIG的gpu上公开MIG设备所需的策略:\n\t\t[none | single | mixed]",
 			EnvVars: []string{"MIG_STRATEGY"},
 		},
 		&cli.BoolFlag{
 			Name:    "fail-on-init-error",
 			Value:   true,
-			Usage:   "fail the plugin if an error is encountered during initialization, otherwise block indefinitely",
+			Usage:   "如果在初始化过程中遇到错误，则失败插件，否则将无限期阻塞",
 			EnvVars: []string{"FAIL_ON_INIT_ERROR"},
 		},
 		&cli.StringFlag{
 			Name:    "nvidia-driver-root",
 			Value:   "/",
-			Usage:   "the root path for the NVIDIA driver installation (typical values are '/' or '/run/nvidia/driver')",
+			Usage:   "NVIDIA驱动安装的根路径(typical values are '/' or '/run/nvidia/driver')",
 			EnvVars: []string{"NVIDIA_DRIVER_ROOT"},
 		},
 		&cli.BoolFlag{
 			Name:    "pass-device-specs",
 			Value:   false,
-			Usage:   "pass the list of DeviceSpecs to the kubelet on Allocate()",
+			Usage:   "传递 devicepec 列表 to the kubelet on Allocate()",
 			EnvVars: []string{"PASS_DEVICE_SPECS"},
 		},
 		&cli.StringSliceFlag{
 			Name:    "device-list-strategy",
 			Value:   cli.NewStringSlice(string(spec.DeviceListStrategyEnvvar)),
-			Usage:   "the desired strategy for passing the device list to the underlying runtime:\n\t\t[envvar | volume-mounts | cdi-annotations]",
+			Usage:   "将设备列表传递到底层运行时所需的策略:\n\t\t[envvar | volume-mounts | cdi-annotations]",
 			EnvVars: []string{"DEVICE_LIST_STRATEGY"},
 		},
 		&cli.StringFlag{
 			Name:    "device-id-strategy",
 			Value:   spec.DeviceIDStrategyUUID,
-			Usage:   "the desired strategy for passing device IDs to the underlying runtime:\n\t\t[uuid | index]",
+			Usage:   "将设备id传递到底层运行时所需的策略:\n\t\t[uuid | index]",
 			EnvVars: []string{"DEVICE_ID_STRATEGY"},
 		},
 		&cli.BoolFlag{
 			Name:    "gds-enabled",
-			Usage:   "ensure that containers are started with NVIDIA_GDS=enabled",
+			Usage:   "确保容器在启动时启用了NVIDIA_GDS=",
 			EnvVars: []string{"GDS_ENABLED"},
 		},
 		&cli.BoolFlag{
 			Name:    "mofed-enabled",
-			Usage:   "ensure that containers are started with NVIDIA_MOFED=enabled",
+			Usage:   "确保容器在启动时启用了NVIDIA_MOFED=",
 			EnvVars: []string{"MOFED_ENABLED"},
 		},
 		&cli.StringFlag{
 			Name:        "config-file",
-			Usage:       "the path to a config file as an alternative to command line options or environment variables",
+			Usage:       "配置文件的路径，作为命令行选项或环境变量的替代方案",
 			Destination: &configFile,
 			EnvVars:     []string{"CONFIG_FILE"},
 		},
 		&cli.StringFlag{
 			Name:    "cdi-annotation-prefix",
 			Value:   spec.DefaultCDIAnnotationPrefix,
-			Usage:   "the prefix to use for CDI container annotation keys",
+			Usage:   "用于CDI容器注释键的前缀",
 			EnvVars: []string{"CDI_ANNOTATION_PREFIX"},
 		},
 		&cli.StringFlag{
 			Name:    "nvidia-ctk-path",
 			Value:   spec.DefaultNvidiaCTKPath,
-			Usage:   "the path to use for the nvidia-ctk in the generated CDI specification",
+			Usage:   "生成的CDI规范中用于nvidia-ctk的路径",
 			EnvVars: []string{"NVIDIA_CTK_PATH"},
 		},
 		&cli.StringFlag{
 			Name:    "container-driver-root",
 			Value:   spec.DefaultContainerDriverRoot,
-			Usage:   "the path where the NVIDIA driver root is mounted in the container; used for generating CDI specifications",
+			Usage:   "NVIDIA驱动根安装在容器中的路径;用于生成CDI规格",
 			EnvVars: []string{"CONTAINER_DRIVER_ROOT"},
 		},
 	}
@@ -136,19 +136,6 @@ func validateFlags(config *spec.Config) error {
 		return fmt.Errorf("invalid --device-id-strategy option: %v", *config.Flags.Plugin.DeviceIDStrategy)
 	}
 	return nil
-}
-
-func loadConfig(c *cli.Context, flags []cli.Flag) (*spec.Config, error) {
-	config, err := spec.NewConfig(c, flags)
-	if err != nil {
-		return nil, fmt.Errorf("unable to finalize config: %v", err)
-	}
-	err = validateFlags(config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to validate flags: %v", err)
-	}
-	config.Flags.GFD = nil
-	return config, nil
 }
 
 func start(c *cli.Context, flags []cli.Flag) error {
@@ -240,20 +227,20 @@ exit:
 func startPlugins(c *cli.Context, flags []cli.Flag, restarting bool) ([]plugin.Interface, bool, error) {
 	// Load the configuration file
 	klog.Info("Loading configuration.")
-	config, err := loadConfig(c, flags)
+	config, err := loadConfig(c, flags) // 配置文件
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to load config: %v", err)
 	}
-	disableResourceRenamingInConfig(config)
+	disableResourceRenamingInConfig(config) // 修正
 
 	/*Loading config files*/
 	//fmt.Println("NodeName=", config.NodeName)
-	devConfig, err := generateDeviceConfigFromNvidia(config, c, flags)
+	devConfig, err := generateDeviceConfigFromNvidia(config, c, flags) // ✅ 设置全局变量
 	if err != nil {
 		fmt.Printf("failed to load config file %s", err.Error())
 	}
 
-	// Update the configuration file with default resources.
+	// 使用默认资源更新配置文件。
 	klog.Info("Updating config with default resource matching patterns.")
 	err = rm.AddDefaultResourcesToConfig(&devConfig)
 	if err != nil {
@@ -305,25 +292,17 @@ func startPlugins(c *cli.Context, flags []cli.Flag, restarting bool) ([]plugin.I
 	return plugins, false, nil
 }
 
-func stopPlugins(plugins []plugin.Interface) error {
-	klog.Info("Stopping plugins.")
-	for _, p := range plugins {
-		p.Stop()
-	}
-	return nil
-}
-
 // disableResourceRenamingInConfig temporarily disable the resource renaming feature of the plugin.
 // We plan to reeenable this feature in a future release.
 func disableResourceRenamingInConfig(config *spec.Config) {
 	// Disable resource renaming through config.Resource
 	if len(config.Resources.GPUs) > 0 || len(config.Resources.MIGs) > 0 {
-		klog.Infof("Customizing the 'resources' field is not yet supported in the config. Ignoring...")
+		klog.Infof("在配置中还不支持自定义'resources'字段. Ignoring...")
 	}
 	config.Resources.GPUs = nil
 	config.Resources.MIGs = nil
 
-	// Disable renaming / device selection in Sharing.TimeSlicing.Resources
+	// 禁用sharing . timeslic . resources中的重命名/设备选择
 	renameByDefault := config.Sharing.TimeSlicing.RenameByDefault
 	setsNonDefaultRename := false
 	setsDevices := false
@@ -349,4 +328,23 @@ func disableResourceRenamingInConfig(config *spec.Config) {
 	if setsDevices {
 		klog.Warning("Customizing the 'devices' field in sharing.timeSlicing.resources is not yet supported in the config. Ignoring...")
 	}
+}
+func stopPlugins(plugins []plugin.Interface) error {
+	klog.Info("Stopping plugins.")
+	for _, p := range plugins {
+		p.Stop()
+	}
+	return nil
+}
+func loadConfig(c *cli.Context, flags []cli.Flag) (*spec.Config, error) {
+	config, err := spec.NewConfig(c, flags)
+	if err != nil {
+		return nil, fmt.Errorf("unable to finalize config: %v", err)
+	}
+	err = validateFlags(config)
+	if err != nil {
+		return nil, fmt.Errorf("unable to validate flags: %v", err)
+	}
+	config.Flags.GFD = nil
+	return config, nil
 }
