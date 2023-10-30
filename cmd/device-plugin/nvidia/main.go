@@ -17,31 +17,32 @@
 package main
 
 import (
+	"4pd.io/k8s-vgpu/debug"
 	"encoding/json"
 	"fmt"
 	"os"
 	"syscall"
 	"time"
 
-	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/over_info"
+	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/info"
 	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/plugin"
 	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/rm"
 	"4pd.io/k8s-vgpu/pkg/util"
 	spec "github.com/NVIDIA/k8s-device-plugin/api/config/v1"
 	"github.com/fsnotify/fsnotify"
 	cli "github.com/urfave/cli/v2"
-
-	"k8s.io/klog/v2"
+	klog "k8s.io/klog/v2"
 	pluginapi "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 )
 
 func main() {
+	debug.Init()
 	var configFile string
 
 	c := cli.NewApp()
 	c.Name = "NVIDIA Device Plugin"
 	c.Usage = "NVIDIA device plugin for Kubernetes"
-	c.Version = over_info.GetVersionString()
+	c.Version = info.GetVersionString()
 	c.Action = func(ctx *cli.Context) error {
 		return start(ctx, c.Flags)
 	}
@@ -124,18 +125,6 @@ func main() {
 		klog.Error(err)
 		os.Exit(1)
 	}
-}
-
-func validateFlags(config *spec.Config) error {
-	_, err := spec.NewDeviceListStrategies(*config.Flags.Plugin.DeviceListStrategy)
-	if err != nil {
-		return fmt.Errorf("invalid --device-list-strategy option: %v", err)
-	}
-
-	if *config.Flags.Plugin.DeviceIDStrategy != spec.DeviceIDStrategyUUID && *config.Flags.Plugin.DeviceIDStrategy != spec.DeviceIDStrategyIndex {
-		return fmt.Errorf("invalid --device-id-strategy option: %v", *config.Flags.Plugin.DeviceIDStrategy)
-	}
-	return nil
 }
 
 func start(c *cli.Context, flags []cli.Flag) error {
@@ -224,6 +213,77 @@ exit:
 	return nil
 }
 
+func validateFlags(config *spec.Config) error {
+	_, err := spec.NewDeviceListStrategies(*config.Flags.Plugin.DeviceListStrategy)
+	if err != nil {
+		return fmt.Errorf("invalid --device-list-strategy option: %v", err)
+	}
+
+	if *config.Flags.Plugin.DeviceIDStrategy != spec.DeviceIDStrategyUUID && *config.Flags.Plugin.DeviceIDStrategy != spec.DeviceIDStrategyIndex {
+		return fmt.Errorf("invalid --device-id-strategy option: %v", *config.Flags.Plugin.DeviceIDStrategy)
+	}
+	return nil
+}
+
+func stopPlugins(plugins []plugin.Interface) error {
+	klog.Info("Stopping plugins.")
+	for _, p := range plugins {
+		p.Stop()
+	}
+	return nil
+}
+func loadConfig(c *cli.Context, flags []cli.Flag) (*spec.Config, error) {
+	config, err := spec.NewConfig(c, flags)
+	if err != nil {
+		return nil, fmt.Errorf("unable to finalize config: %v", err)
+	}
+	err = validateFlags(config)
+	if err != nil {
+		return nil, fmt.Errorf("unable to validate flags: %v", err)
+	}
+	config.Flags.GFD = nil
+	return config, nil
+}
+
+// disableResourceRenamingInConfig temporarily disable the resource renaming feature of the plugin.
+// We plan to reeenable this feature in a future release.
+func disableResourceRenamingInConfig(config *spec.Config) {
+	// Disable resource renaming through config.Resource
+	if len(config.Resources.GPUs) > 0 || len(config.Resources.MIGs) > 0 {
+		klog.Infof("在配置中还不支持自定义'resources'字段. Ignoring...")
+	}
+	config.Resources.GPUs = nil
+	config.Resources.MIGs = nil
+
+	// 禁用sharing . timeslic . resources中的重命名/设备选择
+	renameByDefault := config.Sharing.TimeSlicing.RenameByDefault
+	setsNonDefaultRename := false
+	setsDevices := false
+	for i, r := range config.Sharing.TimeSlicing.Resources {
+		if !renameByDefault && r.Rename != "" {
+			setsNonDefaultRename = true
+			config.Sharing.TimeSlicing.Resources[i].Rename = ""
+		}
+		if renameByDefault && r.Rename != r.Name.DefaultSharedRename() {
+			setsNonDefaultRename = true
+			config.Sharing.TimeSlicing.Resources[i].Rename = r.Name.DefaultSharedRename()
+		}
+		// 只能同时全部时分复用，不能一部分
+		if !r.Devices.All {
+			setsDevices = true
+			config.Sharing.TimeSlicing.Resources[i].Devices.All = true
+			config.Sharing.TimeSlicing.Resources[i].Devices.Count = 0
+			config.Sharing.TimeSlicing.Resources[i].Devices.List = nil
+		}
+	}
+	if setsNonDefaultRename {
+		klog.Warning("Setting the 'rename' field in sharing.timeSlicing.resources is not yet supported in the config. Ignoring...")
+	}
+	if setsDevices {
+		klog.Warning("Customizing the 'devices' field in sharing.timeSlicing.resources is not yet supported in the config. Ignoring...")
+	}
+}
+
 func startPlugins(c *cli.Context, flags []cli.Flag, restarting bool) ([]plugin.Interface, bool, error) {
 	// Load the configuration file
 	klog.Info("Loading configuration.")
@@ -290,61 +350,4 @@ func startPlugins(c *cli.Context, flags []cli.Flag, restarting bool) ([]plugin.I
 	}
 
 	return plugins, false, nil
-}
-
-// disableResourceRenamingInConfig temporarily disable the resource renaming feature of the plugin.
-// We plan to reeenable this feature in a future release.
-func disableResourceRenamingInConfig(config *spec.Config) {
-	// Disable resource renaming through config.Resource
-	if len(config.Resources.GPUs) > 0 || len(config.Resources.MIGs) > 0 {
-		klog.Infof("在配置中还不支持自定义'resources'字段. Ignoring...")
-	}
-	config.Resources.GPUs = nil
-	config.Resources.MIGs = nil
-
-	// 禁用sharing . timeslic . resources中的重命名/设备选择
-	renameByDefault := config.Sharing.TimeSlicing.RenameByDefault
-	setsNonDefaultRename := false
-	setsDevices := false
-	for i, r := range config.Sharing.TimeSlicing.Resources {
-		if !renameByDefault && r.Rename != "" {
-			setsNonDefaultRename = true
-			config.Sharing.TimeSlicing.Resources[i].Rename = ""
-		}
-		if renameByDefault && r.Rename != r.Name.DefaultSharedRename() {
-			setsNonDefaultRename = true
-			config.Sharing.TimeSlicing.Resources[i].Rename = r.Name.DefaultSharedRename()
-		}
-		if !r.Devices.All {
-			setsDevices = true
-			config.Sharing.TimeSlicing.Resources[i].Devices.All = true
-			config.Sharing.TimeSlicing.Resources[i].Devices.Count = 0
-			config.Sharing.TimeSlicing.Resources[i].Devices.List = nil
-		}
-	}
-	if setsNonDefaultRename {
-		klog.Warning("Setting the 'rename' field in sharing.timeSlicing.resources is not yet supported in the config. Ignoring...")
-	}
-	if setsDevices {
-		klog.Warning("Customizing the 'devices' field in sharing.timeSlicing.resources is not yet supported in the config. Ignoring...")
-	}
-}
-func stopPlugins(plugins []plugin.Interface) error {
-	klog.Info("Stopping plugins.")
-	for _, p := range plugins {
-		p.Stop()
-	}
-	return nil
-}
-func loadConfig(c *cli.Context, flags []cli.Flag) (*spec.Config, error) {
-	config, err := spec.NewConfig(c, flags)
-	if err != nil {
-		return nil, fmt.Errorf("unable to finalize config: %v", err)
-	}
-	err = validateFlags(config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to validate flags: %v", err)
-	}
-	config.Flags.GFD = nil
-	return config, nil
 }

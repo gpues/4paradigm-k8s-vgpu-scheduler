@@ -1,0 +1,58 @@
+desc: '--config-file xx.json'
+nodeconfig:
+  - name: demo
+    devicememoryscaling: 0
+    devicesplitcount: 0
+    migstrategy: none
+version: v1
+flags:
+  migStrategy: none
+  failOnInitError: true
+  nvidiaDriverRoot: /
+  gdsEnabled: false
+  mofedEnabled: false
+  plugin:
+    passDeviceSpecs: false
+    passDeviceSpecsDesc: "GPU透传"
+    deviceListStrategy:
+      - envvar
+    deviceIDStrategy: uuid
+    cdiAnnotationPrefix: cdi.k8s.io/
+    nvidiaCTKPath: /usr/bin/nvidia-ctk
+    containerDriverRoot: /driver-root
+  gfd:
+    oneshot: false
+    noTimestamp: false
+    sleepInterval: 1
+    outputFile: ""
+    machineTypeFile: ""
+resources:
+  gpus:
+    - pattern: '*'
+      name: nvidia.com/gpu
+  mig: [ ]
+sharing:
+  timeSlicing:
+    renameByDefault: true
+    failRequestsGreaterThanOne: true
+    resources:
+      - rename: "rename"
+        name: "name"
+        replicas: 10
+#        devices: {all: false, count: 0, list: []}
+
+
+
+# -e CUDA_DISABLE_CONTROL=true
+# -e GPU_CORE_UTILIZATION_POLICY=true
+# -e CUDA_DEVICE_MEMORY_LIMIT_0=1024
+# -e CUDA_DEVICE_SM_LIMIT=1024
+# -e CUDA_DEVICE_MEMORY_SHARED_CACHE=/usr/local/vgpu/4725666e-76ff-48df-8d1c-b908573658df.cache
+# -e CUDA_OVERSUBSCRIBE=true
+# -e GPU_CORE_UTILIZATION_POLICY=disable
+# -v /usr/local/vgpu/libvgpu.so:/usr/local/vgpu/libvgpu.so:r
+# -v /usr/local/vgpu/containers/podId_containerName:/usr/local/vgpu:rw
+# -v /tmp/vgpulock:/tmp/vgpulock:r
+# -v /usr/local/vgpu/ld.so.preload:/etc/ld.so.preload:r
+# -v /usr/local/vgpu/license:/vgpu/license:r
+# -v /usr/local/vgpu/vgpuvalidator:/usr/bin/vgpuvalidator:r

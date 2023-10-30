@@ -219,7 +219,7 @@ func (s *Scheduler) RegisterFromNodeAnnotatons() error {
 				s.addNode(val.Name, nodeInfo)
 				nodeInfoCopy[devhandsk] = nodeInfo
 				if s.nodes[val.Name] != nil && nodeInfo != nil && len(nodeInfo.Devices) > 0 {
-					klog.Infof("node %v device %s come node over_info=%v total=%v", val.Name, devhandsk, nodeInfoCopy[devhandsk], s.nodes[val.Name].Devices)
+					klog.Infof("node %v device %s come node info=%v total=%v", val.Name, devhandsk, nodeInfoCopy[devhandsk], s.nodes[val.Name].Devices)
 				}
 			}
 		}

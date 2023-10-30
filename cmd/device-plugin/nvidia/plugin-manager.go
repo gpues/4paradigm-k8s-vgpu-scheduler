@@ -44,7 +44,7 @@ func NewPluginManager(config *util.DeviceConfig) (manager.Interface, error) {
 		return nil, fmt.Errorf("invalid device list strategy: %v", err)
 	}
 
-	cdiEnabled := deviceListStrategies.IsCDIEnabled()
+	cdiEnabled := deviceListStrategies.IsCDIEnabled() // https://baijiahao.baidu.com/s?id=1760495041924071153&wfr=spider&for=pc
 
 	cdiHandler, err := cdi.New(
 		cdi.WithEnabled(cdiEnabled),

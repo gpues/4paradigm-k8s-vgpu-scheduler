@@ -44,11 +44,6 @@ type ResourceManager interface {
 	CheckHealth(stop <-chan interface{}, unhealthy chan<- *Device) error
 }
 
-// Resource gets the resource name associated with the ResourceManager
-func (r *resourceManager) Resource() spec.ResourceName {
-	return r.resource
-}
-
 // Resource gets the devices managed by the ResourceManager
 func (r *resourceManager) Devices() Devices {
 	return r.devices
@@ -104,4 +99,9 @@ func AddDefaultResourcesToConfig(config *util.DeviceConfig) error {
 		})
 	}
 	return nil
+}
+
+// Resource gets the resource name associated with the ResourceManager
+func (r *resourceManager) Resource() spec.ResourceName {
+	return r.resource
 }

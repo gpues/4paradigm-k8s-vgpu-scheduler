@@ -19,11 +19,11 @@ package rm
 import (
 	"bytes"
 	"fmt"
+	"gitlab.com/nvidia/cloud-native/go-nvlib/pkg/nvlib/info"
 	"os"
 	"strconv"
 	"strings"
 
-	"gitlab.com/nvidia/cloud-native/go-nvlib/pkg/nvlib/info"
 	"gitlab.com/nvidia/cloud-native/go-nvlib/pkg/nvml"
 
 	"4pd.io/k8s-vgpu/pkg/device-plugin/nvidiadevice/nvinternal/mig"
@@ -45,43 +45,8 @@ type nvmlMigDevice nvmlDevice
 var _ deviceInfo = (*nvmlDevice)(nil)
 var _ deviceInfo = (*nvmlMigDevice)(nil)
 
-func newGPUDevice(i int, gpu nvml.Device) (string, deviceInfo) {
-	index := fmt.Sprintf("%v", i)
-	isWsl, _ := info.New().HasDXCore()
-	if isWsl {
-		return index, wslDevice{gpu}
-	}
-
-	return index, nvmlDevice{gpu}
-}
-
 func newMigDevice(i int, j int, mig nvml.Device) (string, nvmlMigDevice) {
 	return fmt.Sprintf("%v:%v", i, j), nvmlMigDevice{mig}
-}
-
-// GetUUID returns the UUID of the device
-func (d nvmlDevice) GetUUID() (string, error) {
-	uuid, ret := d.Device.GetUUID()
-	if ret != nvml.SUCCESS {
-		return "", ret
-	}
-	return uuid, nil
-}
-
-// GetUUID returns the UUID of the device
-func (d nvmlMigDevice) GetUUID() (string, error) {
-	return nvmlDevice(d).GetUUID()
-}
-
-// GetPaths returns the paths for a GPU device
-func (d nvmlDevice) GetPaths() ([]string, error) {
-	minor, ret := d.GetMinorNumber()
-	if ret != nvml.SUCCESS {
-		return nil, fmt.Errorf("error getting GPU device minor number: %v", ret)
-	}
-	path := fmt.Sprintf("/dev/nvidia%d", minor)
-
-	return []string{path}, nil
 }
 
 // GetPaths returns the paths for a MIG device
@@ -130,6 +95,46 @@ func (d nvmlMigDevice) GetPaths() ([]string, error) {
 	return devicePaths, nil
 }
 
+// GetNumaNode for a MIG device is the NUMA node of the parent device.
+func (d nvmlMigDevice) GetNumaNode() (bool, int, error) {
+	parent, ret := d.GetDeviceHandleFromMigDeviceHandle()
+	if ret != nvml.SUCCESS {
+		return false, 0, fmt.Errorf("error getting parent GPU device from MIG device: %v", ret)
+	}
+
+	return nvmlDevice{parent}.GetNumaNode()
+}
+func newGPUDevice(i int, gpu nvml.Device) (string, deviceInfo) {
+	index := fmt.Sprintf("%v", i)
+	isWsl, _ := info.New().HasDXCore()
+	if isWsl {
+		return index, wslDevice{gpu}
+	}
+
+	return index, nvmlDevice{gpu}
+}
+
+// GetUUID returns the UUID of the device
+// nvidia-smi -L
+func (d nvmlDevice) GetUUID() (string, error) {
+	uuid, ret := d.Device.GetUUID()
+	if ret != nvml.SUCCESS {
+		return "", ret
+	}
+	return uuid, nil
+}
+
+// GetPaths returns the paths for a GPU device
+func (d nvmlDevice) GetPaths() ([]string, error) {
+	minor, ret := d.GetMinorNumber()
+	if ret != nvml.SUCCESS {
+		return nil, fmt.Errorf("error getting GPU device minor number: %v", ret)
+	}
+	path := fmt.Sprintf("/dev/nvidia%d", minor)
+
+	return []string{path}, nil
+}
+
 // GetNumaNode returns the NUMA node associated with the GPU device
 func (d nvmlDevice) GetNumaNode() (bool, int, error) {
 	info, ret := d.GetPciInfo()
@@ -157,12 +162,7 @@ func (d nvmlDevice) GetNumaNode() (bool, int, error) {
 	return true, node, nil
 }
 
-// GetNumaNode for a MIG device is the NUMA node of the parent device.
-func (d nvmlMigDevice) GetNumaNode() (bool, int, error) {
-	parent, ret := d.GetDeviceHandleFromMigDeviceHandle()
-	if ret != nvml.SUCCESS {
-		return false, 0, fmt.Errorf("error getting parent GPU device from MIG device: %v", ret)
-	}
-
-	return nvmlDevice{parent}.GetNumaNode()
+// GetUUID returns the UUID of the device
+func (d nvmlMigDevice) GetUUID() (string, error) {
+	return nvmlDevice(d).GetUUID()
 }

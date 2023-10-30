@@ -38,7 +38,7 @@ type manager struct {
 }
 
 func (m *manager) resolveMode() (string, error) {
-	// logWithReason logs the output of the has* / is* checks from the over_info.Interface
+	// logWithReason logs the output of the has* / is* checks from the info.Interface
 	logWithReason := func(f func() (bool, string), tag string) bool {
 		is, reason := f()
 		if !is {

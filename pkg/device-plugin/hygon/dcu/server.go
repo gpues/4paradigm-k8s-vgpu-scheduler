@@ -19,8 +19,8 @@ import (
 	"4pd.io/k8s-vgpu/pkg/device-plugin/hygon/dcu/hwloc"
 	"4pd.io/k8s-vgpu/pkg/device/hygon"
 	"4pd.io/k8s-vgpu/pkg/util"
-	"4pd.io/k8s-vgpu/pkg/util/client"
 	"4pd.io/k8s-vgpu/pkg/util/nodelock"
+	"4pd.io/k8s-vgpu/pkg/util/over_client"
 	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -144,7 +144,7 @@ func (p *Plugin) Start() error {
 	}
 	fmt.Println("collecting pcibus=", p.pcibusid)
 
-	cmd = exec.Command("hdmcli", "--show-device-over_info")
+	cmd = exec.Command("hdmcli", "--show-device-info")
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		log.Fatalf("cmd.Run() failed with %s\n", err)
@@ -281,7 +281,7 @@ func (p *Plugin) RefreshContainerDevices() error {
 	}
 
 	for _, f := range files {
-		pods, err := client.GetClient().CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
+		pods, err := over_client.GetClient().CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}

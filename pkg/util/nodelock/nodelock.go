@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"4pd.io/k8s-vgpu/pkg/util/client"
+	"4pd.io/k8s-vgpu/pkg/util/over_client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
@@ -17,7 +17,7 @@ const (
 
 func SetNodeLock(nodeName string) error {
 	ctx := context.Background()
-	node, err := client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	node, err := over_client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -26,18 +26,18 @@ func SetNodeLock(nodeName string) error {
 	}
 	newNode := node.DeepCopy()
 	newNode.ObjectMeta.Annotations[NodeLockTime] = time.Now().Format(time.RFC3339)
-	_, err = client.GetClient().CoreV1().Nodes().Update(ctx, newNode, metav1.UpdateOptions{})
+	_, err = over_client.GetClient().CoreV1().Nodes().Update(ctx, newNode, metav1.UpdateOptions{})
 	for i := 0; i < MaxLockRetry && err != nil; i++ {
 		klog.ErrorS(err, "Failed to update node", "node", nodeName, "retry", i)
 		time.Sleep(100 * time.Millisecond)
-		node, err = client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		node, err = over_client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 		if err != nil {
 			klog.ErrorS(err, "Failed to get node when retry to update", "node", nodeName)
 			continue
 		}
 		newNode := node.DeepCopy()
 		newNode.ObjectMeta.Annotations[NodeLockTime] = time.Now().Format(time.RFC3339)
-		_, err = client.GetClient().CoreV1().Nodes().Update(ctx, newNode, metav1.UpdateOptions{})
+		_, err = over_client.GetClient().CoreV1().Nodes().Update(ctx, newNode, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		return fmt.Errorf("setNodeLock exceeds retry count %d", MaxLockRetry)
@@ -48,7 +48,7 @@ func SetNodeLock(nodeName string) error {
 
 func ReleaseNodeLock(nodeName string) error {
 	ctx := context.Background()
-	node, err := client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	node, err := over_client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -58,18 +58,18 @@ func ReleaseNodeLock(nodeName string) error {
 	}
 	newNode := node.DeepCopy()
 	delete(newNode.ObjectMeta.Annotations, NodeLockTime)
-	_, err = client.GetClient().CoreV1().Nodes().Update(ctx, newNode, metav1.UpdateOptions{})
+	_, err = over_client.GetClient().CoreV1().Nodes().Update(ctx, newNode, metav1.UpdateOptions{})
 	for i := 0; i < MaxLockRetry && err != nil; i++ {
 		klog.ErrorS(err, "Failed to update node", "node", nodeName, "retry", i)
 		time.Sleep(100 * time.Millisecond)
-		node, err = client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		node, err = over_client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 		if err != nil {
 			klog.ErrorS(err, "Failed to get node when retry to update", "node", nodeName)
 			continue
 		}
 		newNode := node.DeepCopy()
 		delete(newNode.ObjectMeta.Annotations, NodeLockTime)
-		_, err = client.GetClient().CoreV1().Nodes().Update(ctx, newNode, metav1.UpdateOptions{})
+		_, err = over_client.GetClient().CoreV1().Nodes().Update(ctx, newNode, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		return fmt.Errorf("releaseNodeLock exceeds retry count %d", MaxLockRetry)
@@ -80,7 +80,7 @@ func ReleaseNodeLock(nodeName string) error {
 
 func LockNode(nodeName string) error {
 	ctx := context.Background()
-	node, err := client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	node, err := over_client.GetClient().CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

@@ -27,6 +27,7 @@ require (
 	golang.org/x/net v0.17.0
 	google.golang.org/grpc v1.56.0
 	google.golang.org/protobuf v1.30.0
+	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.4.0
 	k8s.io/api v0.28.3
 	k8s.io/apimachinery v0.28.3
@@ -92,7 +93,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiserver v0.28.3 // indirect
 	k8s.io/component-base v0.28.3 // indirect
@@ -106,8 +106,7 @@ require (
 )
 
 replace (
-	4pd.io/k8s-vgpu/pkg/api => ./pkg/api
-	4pd.io/k8s-vgpu/pkg/device-plugin => ./pkg/device-plugin
+	github.com/google/gnostic-models/openapiv2 => github.com/google/gnostic/openapiv2 v0.6.8
 	github.com/google/gnostic/openapiv2 => github.com/google/gnostic-models/openapiv2 v0.6.8
 	k8s.io/api => k8s.io/api v0.25.4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.25.4

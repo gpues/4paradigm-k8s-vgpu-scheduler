@@ -10,8 +10,8 @@ import (
 	"4pd.io/k8s-vgpu/pkg/device/hygon"
 	"4pd.io/k8s-vgpu/pkg/device/nvidia"
 	"4pd.io/k8s-vgpu/pkg/util"
-	"4pd.io/k8s-vgpu/pkg/util/client"
 	"4pd.io/k8s-vgpu/pkg/util/nodelock"
+	"4pd.io/k8s-vgpu/pkg/util/over_client"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
@@ -51,8 +51,30 @@ func init() {
 	DevicesToHandle = append(DevicesToHandle, hygon.HygonDCUCommonWord)
 }
 
+func PodAllocationFailed(nodeName string, pod *v1.Pod) {
+	newannos := make(map[string]string)
+	newannos[util.DeviceBindPhase] = util.DeviceBindFailed
+	err := util.PatchPodAnnotations(pod, newannos)
+	if err != nil {
+		klog.Errorf("patchPodAnnotations failed:%v", err.Error())
+	}
+	err = nodelock.ReleaseNodeLock(nodeName)
+	if err != nil {
+		klog.Errorf("release lock failed:%v", err.Error())
+	}
+}
+
+func GlobalFlagSet() *flag.FlagSet {
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	for _, val := range devices {
+		val.ParseConfig(fs)
+	}
+	fs.BoolVar(&DebugMode, "debug", false, "debug mode")
+	klog.InitFlags(fs)
+	return fs
+}
 func PodAllocationTrySuccess(nodeName string, pod *v1.Pod) {
-	refreshed, _ := client.GetClient().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	refreshed, _ := over_client.GetClient().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 	annos := refreshed.Annotations[util.AssignedIDsToAllocateAnnotations]
 	klog.Infoln("TrySuccess:", annos)
 	for _, val := range DevicesToHandle {
@@ -75,27 +97,4 @@ func PodAllocationSuccess(nodeName string, pod *v1.Pod) {
 	if err != nil {
 		klog.Errorf("release lock failed:%v", err.Error())
 	}
-}
-
-func PodAllocationFailed(nodeName string, pod *v1.Pod) {
-	newannos := make(map[string]string)
-	newannos[util.DeviceBindPhase] = util.DeviceBindFailed
-	err := util.PatchPodAnnotations(pod, newannos)
-	if err != nil {
-		klog.Errorf("patchPodAnnotations failed:%v", err.Error())
-	}
-	err = nodelock.ReleaseNodeLock(nodeName)
-	if err != nil {
-		klog.Errorf("release lock failed:%v", err.Error())
-	}
-}
-
-func GlobalFlagSet() *flag.FlagSet {
-	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	for _, val := range devices {
-		val.ParseConfig(fs)
-	}
-	fs.BoolVar(&DebugMode, "debug", false, "debug mode")
-	klog.InitFlags(fs)
-	return fs
 }
